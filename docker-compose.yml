@@ -1,0 +1,39 @@
+version: '3'
+
+services:
+  collector: # can elevate third party
+    container_name: collector
+    hostname: collector
+    image: jaegertracing/jaeger-collector
+    # networks:
+    #   - my-network
+    env_file:
+      - './collector/.env'
+    network_mode: host
+    command: --collector.otlp.enabled=true
+    # ports:
+    #   - 14250:14250 #used by jaeger agent
+    #   - 14268:14268 #http getting trace in jaeger format /api/traces
+    #   - 14269:14269 #grpc getting trace in jaeger format
+    #   - 4318:4318 #http getting trace in otlp format
+    #   - 4317:4317 #grpc getting trace in otlp format
+
+  query-ui: # can elevate third party
+    container_name: query-ui
+    hostname: query-ui
+    image: jaegertracing/jaeger-query
+    # networks:
+    #   - my-network
+    env_file:
+      - './query/.env'
+    network_mode: host
+    # ports:
+    #   - 16685:16685 # grpc
+    #   - 16686:16686 #jaeger uri at /, backend /api
+    #   - 16687:16687 #health check / metrics at /metrics
+
+
+networks:
+  my-network:
+    name: my-network
+    external: true
