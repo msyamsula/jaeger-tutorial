@@ -9,15 +9,16 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	"go.opentelemetry.io/otel"
 
-	// "go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	"github.com/joho/godotenv"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/jaeger"
 	"go.opentelemetry.io/otel/sdk/resource"
-	"go.opentelemetry.io/otel/sdk/trace"
+	sdkTrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
+	"go.opentelemetry.io/otel/trace"
 )
 
 const (
@@ -25,7 +26,7 @@ const (
 )
 
 // newExporter returns a console exporter.
-func newExporter(url string) (trace.SpanExporter, error) {
+func newExporter(url string) (sdkTrace.SpanExporter, error) {
 
 	eopt := jaeger.WithCollectorEndpoint(
 		jaeger.WithEndpoint(url),
@@ -60,7 +61,6 @@ func main() {
 	godotenv.Load(".env")
 	COLLECTOR_URL := os.Getenv("JAEGER_COLLECTOR_URL")
 	fmt.Println(COLLECTOR_URL)
-	r := gin.Default()
 	exporter, err := newExporter(COLLECTOR_URL)
 	// f, _ := os.Create("trace.txt")
 	// defer f.Close()
@@ -69,22 +69,40 @@ func main() {
 		log.Fatal(err)
 	}
 
-	tp := trace.NewTracerProvider(
-		trace.WithBatcher(exporter),
-		trace.WithResource(newResource()),
+	tp := sdkTrace.NewTracerProvider(
+		sdkTrace.WithBatcher(exporter),
+		sdkTrace.WithResource(newResource()),
 	)
 	defer func() {
 		if err = tp.Shutdown(context.Background()); err != nil {
 			log.Fatal(err)
 		}
 	}()
-
 	otel.SetTracerProvider(tp)
 
+	r := gin.Default()
+	r.Use(otelgin.Middleware(name))
 	r.GET("/", func(ctx *gin.Context) {
 
-		newCtx, span := otel.Tracer(name).Start(ctx, "handler-b")
-		defer span.End()
+		// newCtx := otel.GetTextMapPropagator().Extract(
+		// 	ctx, propagation.HeaderCarrier{},
+		// )
+
+		// parentSpan := trace.SpanFromContext(ctx)
+		// parentBaggage := baggage.FromContext(ctx)
+
+		var span trace.Span
+		var newCtx context.Context
+		newCtx, span = otel.Tracer(name).Start(ctx, "GET /")
+		defer func() {
+			if span.IsRecording() {
+				span.SetAttributes(
+					attribute.String("kind", "server"),
+					attribute.String("net.host.name", "0.0.0.0:5001"),
+				)
+			}
+			span.End()
+		}()
 
 		f3(newCtx)
 		ctx.JSON(http.StatusOK, gin.H{
