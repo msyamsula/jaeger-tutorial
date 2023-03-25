@@ -3,63 +3,29 @@ package main
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/joho/godotenv"
-	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/exporters/jaeger"
-	"go.opentelemetry.io/otel/propagation"
-	"go.opentelemetry.io/otel/sdk/resource"
-	sdkTrace "go.opentelemetry.io/otel/sdk/trace"
+	"github.com/msyamsula/jaeger-tutorial/service/a/mytracer"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
 	"go.opentelemetry.io/otel/trace"
 )
 
-const (
-	name = "service-a"
-)
-
-var tracer trace.Tracer
-
-// newExporter returns a console exporter.
-func newExporter(url string) (sdkTrace.SpanExporter, error) {
-	eopt := jaeger.WithCollectorEndpoint(
-		jaeger.WithEndpoint(url),
-	)
-	return jaeger.New(eopt)
-}
-
-// newResource returns a resource describing this application.
-func newResource(name string) *resource.Resource {
-	r, _ := resource.Merge(
-		resource.Default(),
-		resource.NewWithAttributes(
-			semconv.SchemaURL,
-			semconv.ServiceName(name),
-			semconv.ServiceVersion("v0.1.0"),
-			attribute.String("environment", "demo"),
-		),
-	)
-
-	return r
-}
-
 func f1(ctx context.Context) {
-	_, span := tracer.Start(ctx, "f1")
+	newCtx, span := mytracer.Tracer.Start(ctx, "f1")
 	defer span.End()
 
 	time.Sleep(1 * time.Second)
 	fmt.Println("function 1")
+
+	networkCallHalo(newCtx)
 }
 
 func f2(ctx context.Context) {
-	_, span := tracer.Start(ctx, "f2")
+	_, span := mytracer.Tracer.Start(ctx, "f2")
 	defer span.End()
 
 	time.Sleep(2 * time.Second)
@@ -68,7 +34,7 @@ func f2(ctx context.Context) {
 
 func f3(ctx context.Context) {
 
-	newCtx, span := tracer.Start(ctx, "f3")
+	newCtx, span := mytracer.Tracer.Start(ctx, "f3")
 	defer span.End()
 
 	f1(newCtx)
@@ -77,76 +43,55 @@ func f3(ctx context.Context) {
 
 func networkCall(ctx context.Context) {
 
-	_, span := tracer.Start(ctx, "GET /")
-	fmt.Println(name)
-	defer func() {
-		if span.IsRecording() {
-			span.SetAttributes(
-				attribute.String("http.method", "GET"),
-				attribute.String("http.route", "/"),
-				attribute.String("kind", "client"),
-				attribute.String("net.host.name", "0.0.0.0:5001"),
-			)
-		}
-		span.End()
-	}()
+	var span trace.Span
+	ctx, span = mytracer.Tracer.Start(ctx, "network call", trace.WithAttributes(semconv.PeerService("service-b")))
+	defer span.End()
+
 	req, _ := http.NewRequestWithContext(ctx, "GET", "http://0.0.0.0:5001", nil)
 	client := http.Client{
-		// Transport: otelhttp.NewTransport(http.DefaultTransport),
+		Transport: otelhttp.NewTransport(http.DefaultTransport),
 	}
 	res, err := client.Do(req)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	resBody, _ := ioutil.ReadAll(res.Body)
-	fmt.Println(resBody)
+	resBody, _ := io.ReadAll(res.Body)
+	fmt.Println(string(resBody))
 	res.Body.Close()
 }
 
-func initFunc() {
-	godotenv.Load(".env")
-	JAEGER_COLLECTOR := os.Getenv("JAEGER_COLLECTOR_URL")
-	fmt.Println(JAEGER_COLLECTOR)
-	exporter, _ := newExporter(JAEGER_COLLECTOR)
+func networkCallHalo(ctx context.Context) {
 
-	tpa := sdkTrace.NewTracerProvider(
-		sdkTrace.WithBatcher(exporter),
-		sdkTrace.WithResource(newResource(name)),
-	)
-	propagator := propagation.NewCompositeTextMapPropagator(propagation.Baggage{}, propagation.TraceContext{})
-	otel.SetTextMapPropagator(propagator)
-	otel.SetTracerProvider(tpa)
+	var span trace.Span
+	ctx, span = mytracer.Tracer.Start(ctx, "network call halo", trace.WithAttributes(semconv.PeerService("service-b")))
+	defer span.End()
 
-	tracer = otel.Tracer(name)
+	req, _ := http.NewRequestWithContext(ctx, "GET", "http://0.0.0.0:5001/halo", nil)
+	client := http.Client{
+		Transport: otelhttp.NewTransport(http.DefaultTransport),
+	}
+	res, err := client.Do(req)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	resBody, _ := io.ReadAll(res.Body)
+	fmt.Println(string(resBody))
+	res.Body.Close()
 }
 
 func main() {
 
-	initFunc()
+	mytracer.InitTracer()
 	r := gin.Default()
-	r.Use(otelgin.Middleware(name))
+	// r.Use(otelgin.Middleware(mytracer.Name))
 	r.GET("/", func(ctx *gin.Context) {
 
-		// otel.GetTextMapPropagator().Extract(
-		// 	ctx, propagation.HeaderCarrier{},
-		// )
-
-		// traceState := trace.TraceState{}
-		// traceState, _ = traceState.Insert("command", "value")
-		// newCtx := trace.ContextWithSpanContext(ctx, trace.NewSpanContext(
-		// 	trace.SpanContextConfig{
-		// 		TraceState: traceState,
-		// 	},
-		// ))
-
-		var span trace.Span
-		var newCtx context.Context
-		newCtx, span = tracer.Start(ctx, "handler-a", trace.WithSpanKind(trace.SpanKindServer))
-
-		defer func() {
-			span.End()
-		}()
+		// var span trace.Span
+		// var newCtx context.Context
+		newCtx, span := mytracer.Tracer.Start(ctx, "handler-a")
+		defer span.End()
 
 		f3(newCtx)
 
