@@ -1,0 +1,5 @@
+trace propagation (different framework result in different propagation, see example in the package)
+
+https://opentelemetry.io/docs/instrumentation/go/manual/#propagators-and-context
+https://opentelemetry.io/docs/instrumentation/go/libraries/#available-packages
+https://opentelemetry.io/ecosystem/registry/?language=go&component=instrumentation
