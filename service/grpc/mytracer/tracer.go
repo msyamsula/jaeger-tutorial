@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	Name = "http-server-a"
+	Name = "grpc-server"
 )
 
 var Tracer trace.Tracer
@@ -46,6 +46,7 @@ func NewZipkinExporter(zipkinURL string) (sdkTrace.SpanExporter, error) {
 
 // newExporter returns a jaeger exporter.
 func NewExporter(url string) (sdkTrace.SpanExporter, error) {
+
 	eopt := jaeger.WithCollectorEndpoint(
 		jaeger.WithEndpoint(url),
 	)
@@ -63,7 +64,6 @@ func NewResource(name string) *resource.Resource {
 			attribute.String("environment", "demo"),
 		),
 	)
-
 	return r
 }
 
@@ -75,10 +75,10 @@ func InitTracer() {
 	// fmt.Println(ZIPKIN_COLLECTOR)
 	// exporter, _ := NewZipkinExporter(ZIPKIN_COLLECTOR)
 
-	// JAEGER EXPORTER
-	JAEGER_COLLECTOR := os.Getenv("JAEGER_COLLECTOR_URL")
-	fmt.Println(JAEGER_COLLECTOR)
-	exporter, _ := NewExporter(JAEGER_COLLECTOR)
+	// JAEGER COLLECTOR
+	COLLECTOR_URL := os.Getenv("JAEGER_COLLECTOR_URL")
+	fmt.Println(COLLECTOR_URL)
+	exporter, _ := NewExporter(COLLECTOR_URL)
 
 	// // CONSOLE EXPORTER
 	// f, err := os.Create("traces.txt")
@@ -88,12 +88,14 @@ func InitTracer() {
 	// }
 	// exporter, _ := NewConsoleExporter(f)
 
-	tpa := sdkTrace.NewTracerProvider(
+	tp := sdkTrace.NewTracerProvider(
 		sdkTrace.WithBatcher(exporter),
 		sdkTrace.WithResource(NewResource(Name)),
 	)
-	otel.SetTracerProvider(tpa)
+
+	otel.SetTracerProvider(tp)
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
 
 	Tracer = otel.Tracer(Name)
+	fmt.Println(Tracer)
 }

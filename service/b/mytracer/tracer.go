@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	Name = "service-b"
+	Name = "http-server-b"
 )
 
 var Tracer trace.Tracer
@@ -70,15 +70,15 @@ func NewResource(name string) *resource.Resource {
 func InitTracer() {
 	godotenv.Load(".env")
 
-	// ZIPKIN EXPORTER
-	ZIPKIN_COLLECTOR := os.Getenv("ZIPKIN_COLLECTOR_URL")
-	fmt.Println(ZIPKIN_COLLECTOR)
-	exporter, _ := NewZipkinExporter(ZIPKIN_COLLECTOR)
+	// // ZIPKIN EXPORTER
+	// ZIPKIN_COLLECTOR := os.Getenv("ZIPKIN_COLLECTOR_URL")
+	// fmt.Println(ZIPKIN_COLLECTOR)
+	// exporter, _ := NewZipkinExporter(ZIPKIN_COLLECTOR)
 
-	// // JAEGER COLLECTOR
-	// COLLECTOR_URL := os.Getenv("JAEGER_COLLECTOR_URL")
-	// fmt.Println(COLLECTOR_URL)
-	// exporter, _ := NewExporter(COLLECTOR_URL)
+	// JAEGER COLLECTOR
+	COLLECTOR_URL := os.Getenv("JAEGER_COLLECTOR_URL")
+	fmt.Println(COLLECTOR_URL)
+	exporter, _ := NewExporter(COLLECTOR_URL)
 
 	// // CONSOLE EXPORTER
 	// f, err := os.Create("traces.txt")
