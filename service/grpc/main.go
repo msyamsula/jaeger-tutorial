@@ -10,6 +10,7 @@ import (
 	pb "github.com/msyamsula/pb-collections/example"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 )
 
 var (
@@ -60,6 +61,7 @@ func main() {
 		grpc.UnaryInterceptor(otelgrpc.UnaryServerInterceptor()),
 	)
 	pb.RegisterGreeterServer(s, &server{})
+	reflection.Register(s) // register reflection for grpcox
 	log.Printf("server listening at %v", lis.Addr())
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("failed to serve: %v", err)
