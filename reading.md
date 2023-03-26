@@ -7,3 +7,5 @@ https://opentelemetry.io/ecosystem/registry/?language=go&component=instrumentati
 -- jaeger alternative
 https://zipkin.io/
 https://github.com/openzipkin/zipkin/tree/master/docker/examples
+
+folder "mytracer" in each service is kinda the same, need to refactor so it comply with DRY paradigm
