@@ -3,6 +3,7 @@ package mytracer
 import (
 	"fmt"
 	"io"
+	"log"
 	"os"
 
 	"github.com/joho/godotenv"
@@ -10,6 +11,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/jaeger"
 	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
+	"go.opentelemetry.io/otel/exporters/zipkin"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdkTrace "go.opentelemetry.io/otel/sdk/trace"
@@ -30,6 +32,16 @@ func NewConsoleExporter(w io.Writer) (sdkTrace.SpanExporter, error) {
 		stdouttrace.WithPrettyPrint(),
 		stdouttrace.WithoutTimestamps(),
 	)
+}
+
+// NewZipkinExporter returns a zipkin exporter
+func NewZipkinExporter(zipkinURL string) (sdkTrace.SpanExporter, error) {
+	exporter, err := zipkin.New(zipkinURL)
+	if err != nil {
+		log.Fatal("zipkin exporter error")
+	}
+
+	return exporter, err
 }
 
 // newExporter returns a jaeger exporter.
@@ -58,10 +70,15 @@ func NewResource(name string) *resource.Resource {
 func InitTracer() {
 	godotenv.Load(".env")
 
-	// JAEGER EXPORTER
-	JAEGER_COLLECTOR := os.Getenv("JAEGER_COLLECTOR_URL")
-	fmt.Println(JAEGER_COLLECTOR)
-	exporter, _ := NewExporter(JAEGER_COLLECTOR)
+	// ZIPKIN EXPORTER
+	ZIPKIN_COLLECTOR := os.Getenv("ZIPKIN_COLLECTOR_URL")
+	fmt.Println(ZIPKIN_COLLECTOR)
+	exporter, _ := NewZipkinExporter(ZIPKIN_COLLECTOR)
+
+	// // JAEGER EXPORTER
+	// JAEGER_COLLECTOR := os.Getenv("JAEGER_COLLECTOR_URL")
+	// fmt.Println(JAEGER_COLLECTOR)
+	// exporter, _ := NewExporter(JAEGER_COLLECTOR)
 
 	// // CONSOLE EXPORTER
 	// f, err := os.Create("traces.txt")

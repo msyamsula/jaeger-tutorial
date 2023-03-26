@@ -6,3 +6,4 @@ https://opentelemetry.io/ecosystem/registry/?language=go&component=instrumentati
 
 -- jaeger alternative
 https://zipkin.io/
+https://github.com/openzipkin/zipkin/tree/master/docker/examples
